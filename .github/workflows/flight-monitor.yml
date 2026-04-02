@@ -1,0 +1,55 @@
+name: Flight Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run monitor
+        env:
+          TARGET_PRICE_USD: "700"
+          PRICE_TOLERANCE_USD: "50"
+          DEPART_START: "2026-10-01"
+          DEPART_END: "2026-12-31"
+          STEP_DAYS: "7"
+          TRIP_DAYS_MIN: "18"
+          TRIP_DAYS_MAX: "20"
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_URL: ${{ secrets.NTFY_URL }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+        run: |
+          python flight_price_monitor.py --json --output-json results.json --exit-zero | tee results.txt
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: flight-monitor-results
+          path: |
+            results.json
+            results.txt
